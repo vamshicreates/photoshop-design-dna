@@ -5,8 +5,33 @@ app.displayDialogs = DialogModes.NO;
  * High-Level Photoshop Layer, Typography, Vector Shape & ActionManager FX Builder
  * (`assets/psd_builder.jsx`) for the `photoshop-design-dna` skill.
  *
- * Compatible across Adobe Photoshop 2021–2026 on macOS and Windows.
+ * Includes Live Foreground Canvas Redraw (`forceCanvasRedraw`) so the user watches
+ * every guide, background fill, glow orb, card, Smart Object, button, and text layer
+ * appear live on screen in real time on both macOS and Windows.
  */
+
+var LIVE_STEP_DELAY_MS = 220;
+
+function forceCanvasRedraw(delayMs) {
+    try {
+        var desc = new ActionDescriptor();
+        desc.putEnumerated(charIDToTypeID("Stte"), charIDToTypeID("Stte"), charIDToTypeID("RdCm"));
+        executeAction(charIDToTypeID("Wait"), desc, DialogModes.NO);
+    } catch (e) {}
+    try {
+        app.refresh();
+    } catch (e2) {}
+    var ms = delayMs !== undefined ? delayMs : LIVE_STEP_DELAY_MS;
+    if (ms > 0) {
+        try { $.sleep(ms); } catch (e3) {}
+    }
+}
+
+function fitCanvasOnScreen() {
+    try {
+        app.runMenuItem(charIDToTypeID("FtOn"));
+    } catch (e) {}
+}
 
 function hexToRgbObj(hex) {
     var clean = String(hex || "#FFFFFF").replace("#", "");
@@ -120,9 +145,11 @@ function createCanvas(widthPx, heightPx, dpi, docName, bgHex) {
         NewDocumentMode.RGB,
         DocumentFill.TRANSPARENT
     );
+    fitCanvasOnScreen();
     if (bgHex) {
         createSolidFillLayer("Base_Canvas_Color", bgHex, 100);
     }
+    forceCanvasRedraw();
     return doc;
 }
 
@@ -146,6 +173,7 @@ function addGuideGrid(doc, marginPx, cols, rows) {
         doc.guides.add(Direction.HORIZONTAL, UnitValue(h - m, "px"));
         doc.guides.add(Direction.VERTICAL, UnitValue(Math.round(w / 2), "px"));
         doc.guides.add(Direction.HORIZONTAL, UnitValue(Math.round(h / 2), "px"));
+        forceCanvasRedraw(150);
     } catch (e) {}
 }
 
@@ -171,6 +199,7 @@ function createSolidFillLayer(name, hexColor, opacity, parentGroup) {
     lyr.name = name || "Solid_Fill";
     if (opacity !== undefined) lyr.opacity = opacity;
     if (parentGroup) lyr.move(parentGroup, ElementPlacement.INSIDE);
+    forceCanvasRedraw();
     return lyr;
 }
 
@@ -214,6 +243,7 @@ function createRoundedRectShape(x, y, w, h, radius, fillHex, strokeHex, strokeWi
         applyLayerFX(lyr, { stroke: { color: strokeHex, size: strokeWidth, opacity: 100 } });
     }
     if (parentGroup) lyr.move(parentGroup, ElementPlacement.INSIDE);
+    forceCanvasRedraw();
     return lyr;
 }
 
@@ -244,6 +274,7 @@ function createAmbientGlowOrb(cx, cy, radiusPx, hexColor, opacity, name, parentG
     lyr.blendMode = BlendMode.SCREEN;
     lyr.opacity = opacity !== undefined ? opacity : 35;
     if (parentGroup) lyr.move(parentGroup, ElementPlacement.INSIDE);
+    forceCanvasRedraw();
     return lyr;
 }
 
@@ -317,6 +348,7 @@ function applyLayerFX(layer, fxSpec) {
 
         desc.putObject(charIDToTypeID("T   "), charIDToTypeID("Lefx"), lefx);
         executeAction(charIDToTypeID("setd"), desc, DialogModes.NO);
+        forceCanvasRedraw(120);
     } catch (e) {}
 }
 
@@ -355,7 +387,6 @@ function createTextLayer(spec, parentGroup) {
     ti.contents = rawText;
     ti.position = [UnitValue(spec.x || 100, "px"), UnitValue(spec.y || 100, "px")];
 
-    // Position adjustment so spec.y represents the TOP of the text bounding box if topAlign is true (default)
     if (spec.topAlign !== false) {
         var b = getBoundsPx(lyr);
         var dy = (spec.y || 100) - b[1];
@@ -369,6 +400,7 @@ function createTextLayer(spec, parentGroup) {
     if (spec.opacity !== undefined) lyr.opacity = spec.opacity;
     if (spec.fx) applyLayerFX(lyr, spec.fx);
     if (parentGroup) lyr.move(parentGroup, ElementPlacement.INSIDE);
+    forceCanvasRedraw();
     return lyr;
 }
 
@@ -408,11 +440,11 @@ function createComponentButton(spec, parentGroup) {
         topAlign: true
     }, grp);
 
-    // Vertically center text inside button rect
     var tb = getBoundsPx(txtLayer);
     var th = tb[3] - tb[1];
     var targetTop = Math.round(y + (h - th) / 2);
     txtLayer.translate(UnitValue(0, "px"), UnitValue(targetTop - tb[1], "px"));
+    forceCanvasRedraw();
 
     return grp;
 }
@@ -452,6 +484,7 @@ function placeSmartObject(filePath, x, y, targetWidth, targetHeight, name, paren
 
     if (fxSpec) applyLayerFX(lyr, fxSpec);
     if (parentGroup) lyr.move(parentGroup, ElementPlacement.INSIDE);
+    forceCanvasRedraw();
     return lyr;
 }
 
@@ -484,6 +517,9 @@ function savePSD(doc, psdPath) {
 }
 
 function buildFromSpec(spec) {
+    if (spec.liveStepDelayMs !== undefined) {
+        LIVE_STEP_DELAY_MS = Number(spec.liveStepDelayMs);
+    }
     var c = spec.canvas || {};
     var doc = createCanvas(
         c.width || 1080,
@@ -495,7 +531,6 @@ function buildFromSpec(spec) {
 
     addGuideGrid(doc, c.margin || Math.round(Math.min(c.width || 1080, c.height || 1350) * 0.065));
 
-    // Create standardized Agency Layer Groups (from bottom to top)
     var grpBg = ensureGroup(doc, "06_BACKGROUND_SYSTEM");
     var grpAtmos = ensureGroup(doc, "05_ATMOSPHERE_AND_GLOWS");
     var grpCards = ensureGroup(doc, "04_CARDS_AND_CONTAINERS");
@@ -504,12 +539,10 @@ function buildFromSpec(spec) {
     var grpCta = ensureGroup(doc, "01_CTA_AND_BADGES");
     var grpBrand = ensureGroup(doc, "00_BRAND_HEADER_FOOTER");
 
-    // 1. Background fill
     createSolidFillLayer("Base_Canvas_Bg", c.bgColor || "#0B0F19", 100, grpBg);
 
     var manifest = [];
 
-    // 2. Ambient Glow Orbs
     var glows = spec.glows || [];
     for (var g = 0; g < glows.length; g++) {
         var gl = glows[g];
@@ -522,7 +555,6 @@ function buildFromSpec(spec) {
         manifest.push({ name: glowLyr.name, group: grpAtmos.name, type: "GLOW", bounds: getBoundsPx(glowLyr) });
     }
 
-    // 3. Cards & Vector Shapes
     var shapes = spec.shapes || [];
     for (var s = 0; s < shapes.length; s++) {
         var sh = shapes[s];
@@ -539,7 +571,6 @@ function buildFromSpec(spec) {
         manifest.push({ name: shLyr.name, group: grpCards.name, type: "SHAPE", bounds: getBoundsPx(shLyr) });
     }
 
-    // 4. Placed Images / Logos / Smart Objects
     var images = spec.images || [];
     for (var im = 0; im < images.length; im++) {
         var imgSpec = images[im];
@@ -556,7 +587,6 @@ function buildFromSpec(spec) {
         }
     }
 
-    // 5. Pills / Badges & CTA Buttons
     var buttons = spec.buttons || [];
     for (var bIdx = 0; bIdx < buttons.length; bIdx++) {
         var btnSpec = buttons[bIdx];
@@ -564,7 +594,6 @@ function buildFromSpec(spec) {
         manifest.push({ name: btnGrp.name, group: grpCta.name, type: "BUTTON_COMPONENT", bounds: getBoundsPx(btnGrp) });
     }
 
-    // 6. Typography Hierarchy
     var texts = spec.texts || [];
     var textBoundsList = [];
     for (var t = 0; t < texts.length; t++) {
@@ -576,7 +605,9 @@ function buildFromSpec(spec) {
         manifest.push({ name: tLyr.name, group: targetTextGrp.name, type: "TEXT", bounds: tb });
     }
 
-    // Check for accidental text-on-text collisions
+    fitCanvasOnScreen();
+    forceCanvasRedraw(200);
+
     var overlaps = [];
     for (var i = 0; i < textBoundsList.length; i++) {
         for (var j = i + 1; j < textBoundsList.length; j++) {
@@ -597,6 +628,7 @@ function buildFromSpec(spec) {
 
     return toJson({
         status: "success",
+        executionMode: "live_foreground_step_by_step",
         documentName: doc.name,
         canvas: { width: doc.width.as("px"), height: doc.height.as("px") },
         savedPsd: savedPsd,
