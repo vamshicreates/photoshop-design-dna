@@ -23,7 +23,10 @@ from photoshop_cli import (  # noqa: E402
     run_jsx_in_photoshop,
 )
 
+from laya_decision_gate import evaluate_decision as _laya_eval  # noqa: E402
+
 TOOLS = [
+    {'name': 'photoshop_laya_decide', 'description': 'Evaluate a creative brief or decision for Adobe Photoshop using the embedded Laya model (https://github.com/NandhaKishorM/laya) with strict complexity gating. CALL ONLY WHEN NECESSARY for complex/ambiguous multi-branch tasks; for basic tasks, execute directly without calling Laya.', 'inputSchema': {'type': 'object', 'properties': {'state': {'type': 'string', 'description': 'The complex user brief or decision state to evaluate.'}, 'force_laya': {'type': 'boolean', 'description': 'Optional override to force Laya Router evaluation (default: false).'}}, 'required': ['state']}},
     {
         "name": "photoshop_status",
         "description": "Check Adobe Photoshop installation and live connection on macOS or Windows.",
@@ -92,6 +95,12 @@ TOOLS = [
 
 def handle_tool_call(name: str, arguments: dict) -> dict:
     try:
+        if name == "photoshop_laya_decide":
+            res = _laya_eval(
+                state_text=arguments.get("state", ""),
+                force_laya=bool(arguments.get("force_laya", False)),
+            )
+            return {"content": [{"type": "text", "text": json.dumps(res, indent=2)}]}
         if name == "photoshop_status":
             res = cmd_status()
         elif name == "photoshop_inspect_psd":
@@ -146,7 +155,7 @@ def main():
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "photoshop-design-dna", "version": "1.0.0"},
+                    "serverInfo": {"name": "photoshop-design-dna", "version": "1.1.0"},
                 },
             }
             sys.stdout.write(json.dumps(resp) + "\n")

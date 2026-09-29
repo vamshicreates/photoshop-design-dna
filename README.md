@@ -76,3 +76,12 @@ git clone https://github.com/vamshicreates/photoshop-design-dna.git .agents/skil
 2. **Generate Any Future Design from a Text Brief Alone**:
    Once `.design-dna/brand_dna.json` is cached, just share your text brief:
    > **"Using our Design DNA, design a 1080x1350 launch graphic in Photoshop with headline '...' and CTA '...'."**
+
+---
+
+## What's New in v1.1.0 — Embedded Laya Decision Gate (`NandhaKishorM/laya`)
+
+This skill now embeds **[Laya (`https://github.com/NandhaKishorM/laya`)](https://github.com/NandhaKishorM/laya)** via `scripts/laya_decision_gate.py` with a **Strict Complexity Gate**:
+
+- **Basic Tasks → Direct Manual Execution (Laya Bypassed)**: Simple, explicit commands (*"change headline text to 'HELLO WORLD'"*, *"set background color to #0F172A"*, *"export PNG preview"*, *"move CTA button down 40px"*) bypass Laya completely (`laya_called: false`) and run directly in Adobe Photoshop with zero model overhead.
+- **Complex / Ambiguous Creative Briefs → Laya System-1 Router (`from laya import Router`)**: Only when a task requires multi-branch creative routing (`choice`, `score`, `noul`), `scripts/laya_decision_gate.py` invokes Laya's non-autoregressive `Router` in a single forward pass.

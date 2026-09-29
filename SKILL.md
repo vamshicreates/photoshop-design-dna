@@ -268,3 +268,28 @@ Deliver to the user:
 1. The **live open document inside Adobe Photoshop** with all organized layer groups (`00_BRAND_HEADER_FOOTER` through `06_BACKGROUND_SYSTEM`).
 2. The saved **`.psd` file path** (with `maximizeCompatibility = true` and all editable Type/Shape/Smart Object layers preserved).
 3. The exported high-resolution **`.png` preview** and a concise summary of the extracted Design DNA tokens applied.
+
+---
+
+## Embedded Laya Decision Gate (`NandhaKishorM/laya`) — Call Laya ONLY When Necessary
+
+This skill embeds the **[Laya Non-Autoregressive Decision Model (`https://github.com/NandhaKishorM/laya`)](https://github.com/NandhaKishorM/laya)** inside [`scripts/laya_decision_gate.py`](scripts/laya_decision_gate.py) (`from laya import Router`).
+
+### Strict Execution Policy: When to Call Laya vs. Manual Execution
+
+1. **BASIC / EXPLICIT TASKS → DO NOT CALL LAYA (Execute Directly & Manually)**:
+   - If the user gives a clear, direct, or single-step command (for example: *"change headline text to 'HELLO WORLD'"*, *"set background color to #0F172A"*, *"export PNG preview"*, *"move CTA button down 40px"*), **DO NOT call Laya**.
+   - Execute the step directly using the skill's native CLI/MCP tools to keep execution instant and zero-overhead.
+2. **COMPLEX / AMBIGUOUS MULTI-BRANCH TASKS → CALL LAYA (`laya_decision_gate.py`)**:
+   - Call Laya **only when** a genuine typed decision (`choice`, `score`, `noul`) across multiple creative lanes or ambiguous requirements is needed (for example: *Select the optimal multi-group composition archetype and visual hierarchy for an open-ended campaign brief*; *Arbitrate between competing Design DNA layout patterns across multiple product categories*).
+   - Run the Laya Decision Gate:
+     ```bash
+     python3 scripts/laya_decision_gate.py --state "<user_brief_or_complex_state>"
+     ```
+   - `laya_decision_gate.py` automatically runs `should_call_laya()` first:
+     - If the task is basic, it immediately returns `"laya_called": false, "execution_mode": "direct_manual_execution"` without loading neural weights.
+     - If the task is genuinely complex, it invokes `laya.Router().predict(...)` in a single forward pass (~33ms) with calibrated confidence gating (`min_confidence=0.55`) and neutral `noul` labels (`{"true": "A", "false": "B"}`).
+   - To install the `laya` neural weights package (`pip install laya`) on a machine:
+     ```bash
+     python3 scripts/laya_decision_gate.py --install
+     ```
